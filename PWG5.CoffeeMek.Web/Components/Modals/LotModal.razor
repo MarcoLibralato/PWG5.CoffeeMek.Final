@@ -1,0 +1,82 @@
+﻿@using PWG5.CoffeeMek.Data.Models
+@using BlazorBootstrap
+@inject LotApiClient LotApiClient
+@inject CustomerApiClient CustomerApiClient
+
+<Modal @ref="modal" Title="Nuovo Lotto">
+    <BodyTemplate>
+        <EditForm Model="@newLot" OnValidSubmit="HandleCreateAsync">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="mb-3">
+                <label class="form-label">Customer</label>
+                <InputSelect @bind-Value="newLot.CustomerId" class="form-select">
+                    <option value="">Seleziona cliente</option>
+                    @foreach (var customer in customers)
+                    {
+                        <option value="@customer.Id">@customer.Name</option>
+                    }
+                </InputSelect>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Quantità</label>
+                <InputNumber class="form-control" @bind-Value="quantityInput" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Data Pianificata</label>
+                <InputDate class="form-control" @bind-Value="newLot.ScheduledStartTime" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Sede</label>
+                <select class="form-control" @bind="newLot.LocationId">
+                    <option value="">Seleziona sede</option>
+                    <option value="3">Italy</option>
+                    <option value="2">Brazil</option>
+                    <option value="1">Vietnam</option>
+                </select>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-secondary" @onclick="CloseAsync">Annulla</button>
+                <button type="submit" class="btn btn-primary">Salva</button>
+            </div>
+        </EditForm>
+    </BodyTemplate>
+</Modal>
+
+@code {
+    [Parameter] public EventCallback LotCreated { get; set; }
+    private Modal modal = default!;
+    private int quantityInput = 0;
+    private Lot newLot = new()
+    {
+        Status = "In Queue",
+    };
+    private List<Customer> customers = [];
+
+    public async Task ShowAsync()
+    {
+        customers = (await CustomerApiClient.GetCustomersAsync()).ToList();
+        newLot = new()
+        {
+            Status = "In Queue",
+            ScheduledStartTime = DateTime.Today.AddDays(3)
+        };
+        await modal.ShowAsync();
+    }
+
+    private async Task HandleCreateAsync()
+    {
+        newLot.Quantity = (uint)quantityInput;
+        await LotApiClient.CreateLotAsync(newLot);
+        await modal.HideAsync();
+        await LotCreated.InvokeAsync();
+    }
+
+
+    private async Task CloseAsync()
+    {
+        await modal.HideAsync();
+    }
+}

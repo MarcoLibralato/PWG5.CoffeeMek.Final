@@ -1,0 +1,185 @@
+﻿@page "/"
+@using PWG5.CoffeeMek.Data.Models
+@inject CutterCNCApiClient cncLogApiClient
+@inject LatheApiClient latheLogApiClient
+@inject AssemblyLineApiClient assemblyLogApiClient
+@inject TestLineApiClient testLogApiClient
+@rendermode InteractiveServer
+@using BlazorBootstrap
+<PageTitle>Dashboard</PageTitle>
+
+<h2 class="mb-4">CoffeeMek Dashboard</h2>
+
+<!--Card stato sedi -->
+<div class="row mb-4">
+    @foreach (var location in new[] { "Italy", "Brazil", "Vietnam" })
+    {
+        <div class="col-md-4">
+            <div class="card border-success mb-3">
+                <div class="card-header bg-success text-white">
+                    @location
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title">Ultimo Stato: OK</h5>
+                    <p class="card-text">Tutti i macchinari operativi.</p>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<h4>Latest Logs</h4>
+@if (unifiedLogs == null)
+{
+    <p>Caricamento log...</p>
+}
+else if (!unifiedLogs.Any())
+{
+    <p>Nessun log disponibile.</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Source</th>
+                <th>Timestamp</th>
+                <th>Status</th>
+                <th>Location</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var log in unifiedLogs)
+            {
+                <tr>
+                    <td>@log.Source</td>
+                    <td>@log.Timestamp.ToString("dd/MM/yyyy HH:mm")</td>
+                    <td>@log.Status</td>
+                    <td>@log.Location</td>
+                    <td>
+                        @if (log.Details?.Any() == true)
+                        {
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="@(() => ToggleDetails(log))">
+                                @if (expandedLogs.Contains(log))
+                                {
+                                    <i class="bi bi-chevron-up"></i>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-chevron-down"></i>
+                                }
+                            </button>
+                        }
+                    </td>
+                </tr>
+                @if (expandedLogs.Contains(log))
+                {
+                    <tr>
+                        <td colspan="5">
+                            <ul class="list-group">
+                                @foreach (var kvp in log.Details)
+                                {
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        @kvp.Key
+                                        <span class="badge bg-primary rounded-pill">@kvp.Value</span>
+                                    </li>
+                                }
+                            </ul>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<UnifiedLogDto> unifiedLogs = [];
+    private HashSet<UnifiedLogDto> expandedLogs = new();
+
+    private readonly Dictionary<int, string> locationMap = new()
+    {
+        { 1, "Vietnam" },
+        { 2, "Brazil" },
+        { 3, "Italy" }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var cncLogsTask = cncLogApiClient.GetCutterCNCLogsAsync();
+        var latheLogsTask = latheLogApiClient.GetLatheLogsAsync();
+        var assemblyLogsTask = assemblyLogApiClient.GetAssemblyLineLogsAsync();
+        var testLogsTask = testLogApiClient.GetTestLineLogsAsync();
+
+        await Task.WhenAll(cncLogsTask, latheLogsTask, assemblyLogsTask, testLogsTask);
+
+        unifiedLogs = new List<UnifiedLogDto>();
+
+        unifiedLogs.AddRange(cncLogsTask.Result.Select(l => new UnifiedLogDto
+        {
+            Source = "CNC",
+            Timestamp = l.TimestampUTC.DateTime,
+            Status = l.MachineStatus,
+            Location = locationMap.ContainsKey(l.LocationId) ? locationMap[l.LocationId] : "Unknown",
+            Details = new Dictionary<string, string>
+            {
+                { "CutDepth", l.CutDepth.ToString() },
+                { "Vibration", l.Vibration.ToString() }
+            }
+        }));
+
+        unifiedLogs.AddRange(latheLogsTask.Result.Select(l => new UnifiedLogDto
+        {
+            Source = "Lathe",
+            Timestamp = l.TimestampUTC.DateTime,
+            Status = l.MachineStatus,
+            Location = locationMap.ContainsKey(l.LocationId) ? locationMap[l.LocationId] : "Unknown",
+            Details = new Dictionary<string, string>
+            {
+                { "RPM", l.RotationSpeed.ToString() },
+                { "SpindleTemperature", l.SpindleTemperature.ToString() }
+            }
+        }));
+
+        unifiedLogs.AddRange(assemblyLogsTask.Result.Select(l => new UnifiedLogDto
+        {
+            Source = "Assembly",
+            Timestamp = l.TimestampUTC.DateTime,
+            Status = l.MachineStatus,
+            Location = locationMap.ContainsKey(l.LocationId) ? locationMap[l.LocationId] : "Unknown",
+            Details = new Dictionary<string, string>
+            {
+                { "MeanStationTime", l.MeanStationTime.ToString("ss.fff") }
+            }
+        }));
+
+        unifiedLogs.AddRange(testLogsTask.Result.Select(l => new UnifiedLogDto
+        {
+            Source = "Test",
+            Timestamp = l.TimestampUTC.DateTime,
+            Status = "",
+            Location = locationMap.ContainsKey(l.LocationId) ? locationMap[l.LocationId] : "Unknown",
+            Details = new Dictionary<string, string>
+            {
+                { "Result", l.TestResult },
+                { "BoilerPressure", l.BoilerPressure.ToString() },
+                { "BoilerTemperature", l.BoilerTemperature.ToString() },
+                { "EnergyConsumption", l.EnergyConsumption.ToString() }
+            }
+        }));
+
+        unifiedLogs = unifiedLogs
+            .OrderByDescending(l => l.Timestamp)
+            .Take(10)
+            .ToList();
+    }
+
+    private void ToggleDetails(UnifiedLogDto log)
+    {
+        if (expandedLogs.Contains(log))
+            expandedLogs.Remove(log);
+        else
+            expandedLogs.Add(log);
+    }
+}

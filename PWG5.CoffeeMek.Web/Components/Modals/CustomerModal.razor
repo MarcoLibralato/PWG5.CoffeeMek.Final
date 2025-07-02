@@ -1,0 +1,56 @@
+﻿@using BlazorBootstrap
+@using PWG5.CoffeeMek.Data.Models
+@inject CustomerApiClient customerApiClient
+
+<Modal @ref="modal" title="New Customer" IsVerticallyCentered="true" IsScrollable="true">
+    <BodyTemplate>
+        <EditForm Model="@newCustomer" OnValidSubmit="CreateNewCustomer">
+        <DataAnnotationsValidator />
+
+            <div class="mb-3">
+                <label class="form-label">Customer</label>
+                <InputText @bind-Value="newCustomer.Name" class="form-control" placeholder="Name" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Mail</label>
+                <InputText @bind-Value="newCustomer.Email" class="form-control" placeholder="Email" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Phone</label>
+                <InputText @bind-Value="newCustomer.Phone" class="form-control" placeholder="Phone number" />
+            </div>
+            <div class="d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-secondary" @onclick="CloseModal">Chiudi</button>
+                <button type="submit" class="btn btn-primary">Salva</button>
+            </div>
+        </EditForm>
+    </BodyTemplate>
+</Modal>
+
+@code {
+    private CustomerDto newCustomer = new();
+    private Modal modal = default!;
+    [Parameter] public EventCallback OnCustomerCreated { get; set; }
+
+    private async Task CreateNewCustomer()
+    {
+        Customer customer = new Customer
+        {
+            Name = newCustomer.Name,
+            Email = newCustomer.Email,
+            Phone = newCustomer.Phone
+        };
+        await customerApiClient.CreateCustomerAsync(customer);
+        await modal.HideAsync();
+        newCustomer = new CustomerDto();
+        await OnCustomerCreated.InvokeAsync();
+    }
+    public async Task ShowCreateModal()
+    {
+        await modal.ShowAsync();
+    }
+    private async Task CloseModal()
+    {
+        await modal.HideAsync();
+    }
+}

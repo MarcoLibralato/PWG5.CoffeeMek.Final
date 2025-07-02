@@ -1,0 +1,114 @@
+﻿@page "/lot"
+@using PWG5.CoffeeMek.Data.Models
+@inject LotApiClient lotApiClient
+@inject CustomerApiClient customerApiClient
+@using PWG5.CoffeeMek.Web.Components.Modals
+@rendermode InteractiveServer
+
+<LotModal @ref="lotModal" LotCreated="OnLotCreated" />
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="mb-0">Production Lots</h3>
+    <button class="btn btn-primary mb-3" @onclick="ShowNewLotModal">
+        <i class="bi bi-plus-lg"></i> Nuovo Lotto
+    </button>
+</div>
+
+
+<ul class="nav nav-tabs" role="tablist">
+    @foreach (var loc in fixedLocations.Keys)
+    {
+        <li class="nav-item" role="presentation">
+            <button class="nav-link @(selectedTab == loc ? "active" : "")"
+                    @onclick="@(() => SelectTab(loc))"
+                    type="button">
+                @loc
+            </button>
+        </li>
+    }
+</ul>
+
+<div class="tab-content mt-3">
+    <div class="tab-pane fade show active">
+
+
+        @if (GetLotsByLocation(selectedTab).Count == 0)
+        {
+        <p>Nessun lotto per @selectedTab.</p>
+        }
+        else
+        {
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Cliente</th>
+                    <th>Data</th>
+                    <th>Quantità Prodotta</th>
+                    <th>Stato</th>
+                </tr>
+            </thead>
+            <tbody>
+                    @foreach (var lot in GetLotsByLocation(selectedTab))
+                {
+                    <tr>
+                        <td>@lot.LotCode</td>
+                        <td>@customers.FirstOrDefault(c => c.Id == lot.CustomerId)?.Name</td>
+                        <td>@lot.ScheduledStartTime.ToString("dd/MM/yyyy")</td>
+                        <td>@lot.ProducedItems/@lot.Quantity</td>
+                        <td>@lot.Status</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        }
+    </div>
+</div>
+
+@code {
+    private string selectedTab = "Italy";
+    private Dictionary<string, int> fixedLocations = new()
+    {
+        { "Italy", 3 },
+        { "Brazil", 2 },
+        { "Vietnam", 1 }
+    };
+    private List<Lot> allLots = new();
+    private LotModal lotModal = default!;
+    private List<Customer> customers = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        allLots = (await lotApiClient.GetLotsAsync()).ToList();
+        customers = (await customerApiClient.GetCustomersAsync()).ToList();
+    }
+
+    private void SelectTab(string location)
+    {
+        selectedTab = location;
+    }
+
+    private List<Lot> GetLotsByLocation(string location)
+    {
+        if (!fixedLocations.TryGetValue(location, out var locationId))
+            return new List<Lot>();
+
+        return allLots
+            .Where(l => l.LocationId == locationId)
+            .OrderBy(l => l.ScheduledStartTime)
+            .ToList();
+    }
+
+
+    private async Task ShowNewLotModal()
+    {
+        await lotModal.ShowAsync();
+    }
+
+    private async Task OnLotCreated()
+    {
+        allLots = (await lotApiClient.GetLotsAsync()).ToList();
+        StateHasChanged();
+    }
+
+}

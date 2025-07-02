@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: pwg5-coffeemek
+services:  
+  app:
+    language: dotnet
+    project: ./PWG5.CoffeeMek.AppHost.csproj
+    host: containerapp

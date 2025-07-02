@@ -1,0 +1,38 @@
+﻿@using BlazorBootstrap
+@using PWG5.CoffeeMek.Data.Models
+@inject CustomerApiClient customerApiClient
+
+<Modal @ref="deleteModal" title="Conferma eliminazione" IsCentered="true">
+    <BodyTemplate>
+        <p>Sei sicuro di voler eliminare <strong>@customerToDelete?.Name</strong>?</p>
+    </BodyTemplate>
+    <FooterTemplate>
+        <button class="btn btn-secondary" @onclick="CloseModal">Annulla</button>
+        <button class="btn btn-danger" @onclick="ConfirmDelete">Elimina</button>
+    </FooterTemplate>
+</Modal>
+
+@code {
+    private Modal deleteModal = default!;
+    private Customer? customerToDelete;
+    [Parameter] public EventCallback OnCustomerDeleted { get; set; }
+
+    public async Task ShowDeleteModal(Customer customer)
+    {
+        customerToDelete = customer;
+        await deleteModal.ShowAsync();
+    }
+    private async Task ConfirmDelete()
+    {
+        if (customerToDelete != null)
+        {
+            await customerApiClient.DeleteCustomerAsync(customerToDelete.Id); 
+        }
+        await deleteModal.HideAsync();
+        await OnCustomerDeleted.InvokeAsync();
+    }
+    private async Task CloseModal()
+    {
+        await deleteModal.HideAsync();
+    }
+}

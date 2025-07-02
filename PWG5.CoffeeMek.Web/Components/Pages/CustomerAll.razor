@@ -1,0 +1,81 @@
+﻿@page "/customer"
+@using PWG5.CoffeeMek.Data.Models
+@attribute [StreamRendering(true)]
+@attribute [OutputCache(Duration = 5)]
+@rendermode InteractiveServer
+@using BlazorBootstrap
+@using PWG5.CoffeeMek.Web.Components.Modals
+@inject CustomerApiClient customerApiClient
+
+<PageTitle>Customer</PageTitle>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="mb-0">Customers</h3>
+        <button class="btn btn-primary" @onclick="ShowCreateModal">
+            <i class="bi bi-plus-lg"></i> Nuovo
+        </button>
+    </div>
+
+    
+    <CustomerModal @ref="modal" OnCustomerCreated="ReloadCustomers" />
+    <CustomerDeleteModal @ref="deleteModal" OnCustomerDeleted="ReloadCustomers" />
+
+    @if (customers == null)
+    {
+        <p>Caricamento clienti...</p>
+    }
+    else if (!customers.Any())
+    {
+        <p>Nessun cliente trovato.</p>
+    }
+    else
+    {
+        <div class="container">
+            <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4">
+                @foreach (var customer in customers)
+                {
+                    <div class="col">
+                        <Card>
+                            <CardBody>
+                                <p><strong>Name:</strong> @customer.Name</p>
+                                <p><strong>Email:</strong> @customer.Email</p>
+                                <p><strong>Phone:</strong> @customer.Phone</p>
+                            </CardBody>
+                            <CardFooter class="text-end">
+                                <button class="btn btn-secondary" @onclick="() => ShowDeleteModal(customer)">
+                                    <i class="bi bi-trash"></i> Elimina
+                                </button>
+                            </CardFooter>
+                        </Card>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private Customer[] customers = [];
+    private CustomerModal modal = default!;
+    private CustomerDeleteModal deleteModal = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        customers = await customerApiClient.GetCustomersAsync();
+    }
+
+    private async Task ShowCreateModal()
+    {
+        await modal.ShowCreateModal();
+    }
+    private async Task ShowDeleteModal(Customer customer)
+    {
+        await deleteModal.ShowDeleteModal(customer);
+    }
+    private async Task ReloadCustomers()
+    {
+        customers = await customerApiClient.GetCustomersAsync();
+        StateHasChanged();
+    }
+}
